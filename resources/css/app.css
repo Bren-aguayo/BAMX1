@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== ESTILOS PERSONALIZADOS ===== */
+
+.contenido {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+  padding: 40px 60px;
+}
+
+.texto {
+  flex: 1;
+}
+
+
+
+.imagen img {
+  max-width: 100%;
+  height: auto;
+  max-height: 920px;
+  object-fit: cover;
+  border-radius: 12px;
+}
