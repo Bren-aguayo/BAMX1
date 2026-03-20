@@ -114,10 +114,10 @@ document.addEventListener('DOMContentLoaded', function () {
         <option value="" disabled {{ old('genero', optional($volunteer)->genero) == '' ? 'selected' : '' }}>
             Selecciona género
         </option>
-        <option value="masculino" {{ old('genero', optional($volunteer)->genero) == 'masculino' ? 'selected' : '' }}>
+        <option value="masculino" {{ old('genero', optional($volunteer)->genero) == 'Masculino' ? 'selected' : '' }}>
             Masculino
         </option>
-        <option value="femenino" {{ old('genero', optional($volunteer)->genero) == 'femenino' ? 'selected' : '' }}>
+        <option value="femenino" {{ old('genero', optional($volunteer)->genero) == 'Femenino' ? 'selected' : '' }}>
             Femenino
         </option>
         <option value="no desea decirlo" {{ old('genero', optional($volunteer)->genero) == 'no desea decirlo' ? 'selected' : '' }}>
