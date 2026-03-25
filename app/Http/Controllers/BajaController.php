@@ -5,11 +5,12 @@ namespace App\Http\Controllers;
 use App\Models\Baja;
 use App\Models\Volunteer;
 use Illuminate\Http\Request;
+use Carbon\Carbon;
 
 class BajaController extends Controller
 {
     /**
-     * Mostrar listado de bajas
+     * Mostrar listado de restricciones
      */
     public function index()
     {
@@ -30,13 +31,16 @@ class BajaController extends Controller
     }
 
     /**
-     * Guardar nueva baja
+     * Guardar nueva restricción
      */
     public function store(Request $request)
     {
         $request->validate([
             'volunteer_id' => ['required', 'exists:volunteers,id'],
+            'tipo' => ['required', 'in:definitiva,temporal'],
             'motivo' => ['required', 'string', 'max:255'],
+            'fecha_inicio' => ['nullable', 'date'],
+            'fecha_fin' => ['nullable', 'date', 'after_or_equal:fecha_inicio'],
         ]);
 
         $volunteer = Volunteer::find($request->volunteer_id);
@@ -45,25 +49,44 @@ class BajaController extends Controller
             return back()->with('error', 'Voluntario no encontrado.');
         }
 
-        // 🔴 Evitar duplicar baja si ya está vetado
-        if ($volunteer->is_vetado == 1) {
-            return back()->with('info', 'Este voluntario ya está vetado.');
+        // Validación extra para suspensión temporal
+        if ($request->tipo === 'temporal' && !$request->fecha_fin) {
+            return back()
+                ->withErrors(['fecha_fin' => 'La fecha fin es obligatoria para una suspensión temporal.'])
+                ->withInput();
         }
 
-        // 🔥 Crear registro en bajas
+        // Evitar duplicar una restricción activa
+        $restriccionActiva = Baja::where('volunteer_id', $request->volunteer_id)
+            ->where(function ($query) {
+                $query->where('tipo', 'definitiva')
+                    ->orWhere(function ($q) {
+                        $q->where('tipo', 'temporal')
+                          ->whereDate('fecha_fin', '>=', Carbon::today());
+                    });
+            })
+            ->exists();
+
+        if ($restriccionActiva) {
+            return back()->with('info', 'Este voluntario ya tiene una restricción activa.');
+        }
+
         Baja::create([
             'volunteer_id' => $request->volunteer_id,
+            'tipo' => $request->tipo,
             'motivo' => $request->motivo,
+            'fecha_inicio' => $request->fecha_inicio ?? Carbon::today()->toDateString(),
+            'fecha_fin' => $request->tipo === 'temporal' ? $request->fecha_fin : null,
         ]);
 
-        // 🔒 Marcar como vetado
+        // Marcar como restringido
         $volunteer->update([
             'is_vetado' => 1
         ]);
 
         return redirect()
             ->route('bajas.index')
-            ->with('success', 'Baja registrada correctamente y voluntario vetado.');
+            ->with('success', 'Restricción registrada correctamente.');
     }
 
     /**
@@ -76,44 +99,84 @@ class BajaController extends Controller
     }
 
     /**
-     * Actualizar baja
+     * Actualizar restricción
      */
     public function update(Request $request, Baja $baja)
     {
         $request->validate([
             'volunteer_id' => ['required', 'exists:volunteers,id'],
+            'tipo' => ['required', 'in:definitiva,temporal'],
             'motivo' => ['required', 'string', 'max:255'],
+            'fecha_inicio' => ['nullable', 'date'],
+            'fecha_fin' => ['nullable', 'date', 'after_or_equal:fecha_inicio'],
         ]);
+
+        if ($request->tipo === 'temporal' && !$request->fecha_fin) {
+            return back()
+                ->withErrors(['fecha_fin' => 'La fecha fin es obligatoria para una suspensión temporal.'])
+                ->withInput();
+        }
 
         $baja->update([
             'volunteer_id' => $request->volunteer_id,
+            'tipo' => $request->tipo,
             'motivo' => $request->motivo,
+            'fecha_inicio' => $request->fecha_inicio ?? Carbon::today()->toDateString(),
+            'fecha_fin' => $request->tipo === 'temporal' ? $request->fecha_fin : null,
         ]);
+
+        // Revisar si el voluntario debe seguir restringido
+        $volunteer = Volunteer::find($request->volunteer_id);
+
+        if ($volunteer) {
+            $tieneRestriccionActiva = Baja::where('volunteer_id', $volunteer->id)
+                ->where(function ($query) {
+                    $query->where('tipo', 'definitiva')
+                        ->orWhere(function ($q) {
+                            $q->where('tipo', 'temporal')
+                              ->whereDate('fecha_fin', '>=', Carbon::today());
+                        });
+                })
+                ->exists();
+
+            $volunteer->update([
+                'is_vetado' => $tieneRestriccionActiva ? 1 : 0
+            ]);
+        }
 
         return redirect()
             ->route('bajas.index')
-            ->with('success', 'Baja actualizada correctamente.');
+            ->with('success', 'Restricción actualizada correctamente.');
     }
 
     /**
-     * Eliminar baja (reactivar voluntario)
+     * Eliminar restricción y revalidar acceso del voluntario
      */
     public function destroy(Baja $baja)
     {
         $volunteer = Volunteer::find($baja->volunteer_id);
 
+        $baja->delete();
+
         if ($volunteer) {
-            // 🔓 Quitar veto
+            $tieneRestriccionActiva = Baja::where('volunteer_id', $volunteer->id)
+                ->where(function ($query) {
+                    $query->where('tipo', 'definitiva')
+                        ->orWhere(function ($q) {
+                            $q->where('tipo', 'temporal')
+                              ->whereDate('fecha_fin', '>=', Carbon::today());
+                        });
+                })
+                ->exists();
+
             $volunteer->update([
-                'is_vetado' => 0
+                'is_vetado' => $tieneRestriccionActiva ? 1 : 0
             ]);
         }
 
-        $baja->delete();
-
         return redirect()
             ->route('bajas.index')
-            ->with('success', 'Baja eliminada y voluntario reactivado.');
+            ->with('success', 'Restricción eliminada correctamente.');
     }
 
     /**
@@ -135,3 +198,4 @@ class BajaController extends Controller
         ]);
     }
 }
+

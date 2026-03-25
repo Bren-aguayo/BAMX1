@@ -51,9 +51,9 @@ class UserController extends Controller
      * Update the specified resource in storage.
      */
     public function update(Request $request, User $user)
-    {
-          $request->validate([
-        'rol' => 'required|in:guardia,gerente,administracion',
+{
+    $request->validate([
+        'rol' => 'required|in:pendiente,guardia,encargado,despensas,gerente,administracion',
     ]);
 
     $user->update([
@@ -61,13 +61,11 @@ class UserController extends Controller
     ]);
 
     return redirect()->route('users.index')->with('success', 'Rol actualizado correctamente.');
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
+}
     public function destroy(string $id)
     {
         //
     }
 }
+
+

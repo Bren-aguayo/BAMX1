@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -16,7 +15,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
-        'rol'
+        'rol',
     ];
 
     protected $hidden = [
@@ -29,9 +28,19 @@ class User extends Authenticatable
         'password' => 'hashed',
     ];
 
+    public function esPendiente()
+    {
+        return $this->rol === 'pendiente';
+    }
+
     public function esAdmin()
     {
         return $this->rol === 'administracion';
+    }
+
+    public function esGerente()
+    {
+        return $this->rol === 'gerente';
     }
 
     public function esEncargado()
@@ -57,6 +66,11 @@ class User extends Authenticatable
     public function tieneAlgunRol(array $roles)
     {
         return in_array($this->rol, $roles);
+    }
+
+    public function puedeAccederAlSistema()
+    {
+        return $this->rol !== 'pendiente';
     }
 }
 
